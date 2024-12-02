@@ -4,9 +4,10 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.schema_config_entry_flow import SchemaFlowFormStep, SchemaOptionsFlowHandler
+import logging
 from .const import DOMAIN, CONF_AWS_ACCESS_KEY, CONF_AWS_SECRET_KEY, CONF_AWS_REGION, CONF_SNS_TOPIC_ARN
 
+_LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -28,19 +29,10 @@ class AwsSnsNotifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                # Optional: Validate the credentials
-                import boto3
-                client = boto3.client(
-                    "sns",
-                    aws_access_key_id=user_input[CONF_AWS_ACCESS_KEY],
-                    aws_secret_access_key=user_input[CONF_AWS_SECRET_KEY],
-                    region_name=user_input[CONF_AWS_REGION],
-                )
-                client.list_topics()  # Test AWS credentials
-
-                # If valid, save configuration
+                # Offload blocking validation to a separate thread
+                await self.hass.async_add_executor_job(self._validate_credentials, user_input)
                 return self.async_create_entry(title="AWS SNS Notify", data=user_input)
-            except Exception as e:
+            except ValueError as e:
                 errors["base"] = "invalid_credentials"
                 _LOGGER.error("Error validating AWS credentials: %s", e)
 
@@ -48,6 +40,18 @@ class AwsSnsNotifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
-    async def async_step_import(self, user_input: dict | None = None) -> FlowResult:
-        """Handle import from configuration.yaml."""
-        return await self.async_step_user(user_input)
+    def _validate_credentials(self, user_input: dict) -> None:
+        """Validate AWS credentials by listing topics."""
+        import boto3
+        try:
+            client = boto3.client(
+                "sns",
+                aws_access_key_id=user_input[CONF_AWS_ACCESS_KEY],
+                aws_secret_access_key=user_input[CONF_AWS_SECRET_KEY],
+                region_name=user_input[CONF_AWS_REGION],
+            )
+            client.list_topics()  # Test if credentials work
+            _LOGGER.debug("AWS credentials validated successfully")
+        except Exception as e:
+            _LOGGER.error("Invalid AWS credentials: %s", e)
+            raise ValueError("Invalid AWS credentials")
