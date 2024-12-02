@@ -51,12 +51,25 @@ class AwsSnsNotificationService(BaseNotificationService):
 
     def send_message(self, message="", **kwargs):
         """Send a message via AWS SNS."""
-        try:
-            self._client.publish(
-                TopicArn=self._sns_topic_arn,
-                Message=message,
-                Subject=kwargs.get("title", "Home Assistant Notification"),
-            )
-            _LOGGER.info("Notification sent via AWS SNS to topic %s", self._sns_topic_arn)
-        except (BotoCoreError, ClientError) as error:
-            _LOGGER.error("Error sending message via AWS SNS: %s", error)
+        target = kwargs.get("target", [])
+        if not isinstance(target, list):
+            target = [target]
+
+        for recipient in target:
+            try:
+                if recipient.startswith("+"):  # Assume it's a phone number
+                    self._client.publish(
+                        PhoneNumber=recipient,
+                        Message=message,
+                    )
+                    _LOGGER.info("SMS sent to %s via AWS SNS", recipient)
+                else:
+                    # Default to using the TopicArn
+                    self._client.publish(
+                        TopicArn=self._sns_topic_arn,
+                        Message=message,
+                        Subject=kwargs.get("title", "Home Assistant Notification"),
+                    )
+                    _LOGGER.info("Notification sent to topic %s", self._sns_topic_arn)
+            except (BotoCoreError, ClientError) as error:
+                _LOGGER.error("Error sending message to %s via AWS SNS: %s", recipient, error)
