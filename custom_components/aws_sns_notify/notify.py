@@ -10,12 +10,13 @@ from homeassistant.components.notify import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.exceptions import HomeAssistantError
 
 _LOGGER = logging.getLogger(__name__)
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_AWS_ACCESS_KEY, CONF_AWS_SECRET_KEY, CONF_AWS_REGION, CONF_SNS_TOPIC_ARN
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -34,10 +35,10 @@ class AwsSnsNotificationEntity(NotifyEntity):
     def __init__(self, unique_id: str, config: dict) -> None:
         """Initialize AWS SNS notify entity."""
         self._attr_unique_id = unique_id
-        self._aws_access_key = config.get("aws_access_key")
-        self._aws_secret_key = config.get("aws_secret_key")
-        self._aws_region = config.get("aws_region")
-        self._sns_topic_arn = config.get("sns_topic_arn")
+        self._aws_access_key = config[CONF_AWS_ACCESS_KEY]
+        self._aws_secret_key = config[CONF_AWS_SECRET_KEY]
+        self._aws_region = config[CONF_AWS_REGION]
+        self._sns_topic_arn = config[CONF_SNS_TOPIC_ARN]
 
         # Initialize SNS client
         import boto3
@@ -55,9 +56,11 @@ class AwsSnsNotificationEntity(NotifyEntity):
             # Determine whether to send to a topic or individual phone number
             target = self._sns_topic_arn
             if target.startswith("+"):
+                # Sending to a phone number
                 self._client.publish(PhoneNumber=target, Message=message)
                 _LOGGER.info("SMS sent to %s via AWS SNS", target)
             else:
+                # Sending to a topic
                 self._client.publish(
                     TopicArn=target,
                     Message=message,

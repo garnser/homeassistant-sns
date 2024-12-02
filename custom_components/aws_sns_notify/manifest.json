@@ -7,5 +7,6 @@
   "dependencies": [],
   "codeowners": ["@garnser"],
   "iot_class": "cloud_push",
-  "integration_type": "hub"
+  "integration_type": "hub",
+  "config_flow": true
 }
