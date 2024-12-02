@@ -33,7 +33,7 @@ async def async_setup_entry(
 class AwsSnsNotificationEntity(NotifyEntity):
     """Implement the notification entity service for AWS SNS."""
 
-    _attr_supported_features = NotifyEntityFeature.TITLE | NotifyEntityFeature.TARGET
+    _attr_supported_features = NotifyEntityFeature.TITLE
     _attr_name = "AWS SNS Notify"
     _attr_icon = "mdi:message-text"
 
