@@ -5,7 +5,7 @@
   "documentation": "https://www.home-assistant.io/integrations/notify",
   "requirements": ["boto3==1.28.13"],
   "dependencies": [],
-  "codeowners": ["@garnser"]
+  "codeowners": ["@garnser"],
   "iot_class": "cloud_push",
   "integration_type": "hub"
 }
