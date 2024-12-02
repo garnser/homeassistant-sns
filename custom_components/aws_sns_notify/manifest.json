@@ -1,8 +1,9 @@
 {
-    "domain": "aws_sns_notify",
-    "name": "AWS SNS Notify",
-    "documentation": "https://www.home-assistant.io/integrations/notify",
-    "requirements": ["boto3==1.28.13"],
-    "dependencies": [],
-    "codeowners": ["@garnser"]
+  "domain": "aws_sns_notify",
+  "name": "AWS SNS Notify",
+  "version": "0.1.0",
+  "documentation": "https://www.home-assistant.io/integrations/notify",
+  "requirements": ["boto3==1.28.13"],
+  "dependencies": [],
+  "codeowners": ["@garnser"]
 }
