@@ -19,54 +19,75 @@ from .const import DOMAIN, CONF_AWS_ACCESS_KEY, CONF_AWS_SECRET_KEY, CONF_AWS_RE
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+        hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the AWS SNS notification entity."""
-    async_add_entities([AwsSnsNotificationEntity(entry.entry_id, entry.data)])
+    _LOGGER.debug("Starting async_setup_entry for AWS SNS Notify")  # Add this
+    try:
+        async_add_entities([AwsSnsNotificationEntity(entry.entry_id, entry.data, hass)])
+        _LOGGER.debug("AWS SNS Notify entity added successfully")
+    except Exception as e:
+        _LOGGER.error("Error in async_setup_entry: %s", e)  # Log any errors
 
+    class AwsSnsNotificationEntity(NotifyEntity):
+        """Implement the notification entity service for AWS SNS."""
 
-class AwsSnsNotificationEntity(NotifyEntity):
-    """Implement the notification entity service for AWS SNS."""
+        _attr_supported_features = NotifyEntityFeature.TITLE
+        _attr_name = DOMAIN
+        _attr_icon = "mdi:message-text"
 
-    _attr_supported_features = NotifyEntityFeature.TITLE
-    _attr_name = DOMAIN
-    _attr_icon = "mdi:message-text"
+        def __init__(self, unique_id: str, config: dict, hass: HomeAssistant) -> None:
+            """Initialize AWS SNS notify entity."""
+            _LOGGER.debug("Initializing AWS SNS Notify entity with unique_id: %s", unique_id)  # Add this
+            self._attr_unique_id = unique_id
+            self._config = config
+            self._hass = hass
 
-    def __init__(self, unique_id: str, config: dict) -> None:
-        """Initialize AWS SNS notify entity."""
-        self._attr_unique_id = unique_id
-        self._aws_access_key = config[CONF_AWS_ACCESS_KEY]
-        self._aws_secret_key = config[CONF_AWS_SECRET_KEY]
-        self._aws_region = config[CONF_AWS_REGION]
-        self._sns_topic_arn = config[CONF_SNS_TOPIC_ARN]
+            import boto3
 
-        # Initialize SNS client
-        import boto3
-
-        self._client = boto3.client(
-            "sns",
-            aws_access_key_id=self._aws_access_key,
-            aws_secret_access_key=self._aws_secret_key,
-            region_name=self._aws_region,
-        )
-
-    async def async_send_message(self, message: str, title: str | None = None) -> None:
-        """Send a message via AWS SNS."""
-        try:
-            # Determine whether to send to a topic or individual phone number
-            target = self._sns_topic_arn
-            if target.startswith("+"):
-                # Sending to a phone number
-                self._client.publish(PhoneNumber=target, Message=message)
-                _LOGGER.info("SMS sent to %s via AWS SNS", target)
-            else:
-                # Sending to a topic
-                self._client.publish(
-                    TopicArn=target,
-                    Message=message,
-                    Subject=title or ATTR_TITLE_DEFAULT,
+            try:
+                self._client = boto3.client(
+                    "sns",
+                    aws_access_key_id=config[CONF_AWS_ACCESS_KEY],
+                    aws_secret_access_key=config[CONF_AWS_SECRET_KEY],
+                    region_name=config[CONF_AWS_REGION],
                 )
-                _LOGGER.info("Notification sent to topic %s via AWS SNS", target)
-        except (BotoCoreError, ClientError) as error:
-            _LOGGER.error("Error sending message via AWS SNS: %s", error)
-            raise HomeAssistantError(f"Error sending message: {error}") from error
+                _LOGGER.debug("SNS client initialized successfully")
+            except Exception as e:
+                _LOGGER.error("Error initializing SNS client: %s", e)  # Log SNS initialization issues
+                raise
+
+        async def async_send_message(self, message: str, title: str | None = None, **kwargs) -> None:
+            """Send a message via AWS SNS."""
+            targets = kwargs.get("target")
+            if not targets:
+                _LOGGER.error("No target specified for AWS SNS notification")
+                raise HomeAssistantError("No target specified for AWS SNS notification")
+
+            if not isinstance(targets, list):
+                targets = [targets]
+
+            try:
+                for target in targets:
+                    await self._hass.async_add_executor_job(self._send_message, target, message, title)
+                    _LOGGER.debug("Message sent to target: %s", target)
+            except Exception as e:
+                _LOGGER.error("Error sending message via AWS SNS: %s", e)
+                raise HomeAssistantError(f"Error sending message: {e}") from e
+
+        def _send_message(self, target: str, message: str, title: str | None = None) -> None:
+            """Blocking method to send a message to a target."""
+            try:
+                if target.startswith("+"):
+                    self._client.publish(PhoneNumber=target, Message=message)
+                    _LOGGER.info("SMS sent to %s via AWS SNS", target)
+                else:
+                    self._client.publish(
+                        TopicArn=target,
+                        Message=message,
+                        Subject=title or ATTR_TITLE_DEFAULT,
+                    )
+                    _LOGGER.info("Notification sent to topic %s via AWS SNS", target)
+            except (BotoCoreError, ClientError) as error:
+                _LOGGER.error("Error sending message to %s via AWS SNS: %s", target, error)
+                raise

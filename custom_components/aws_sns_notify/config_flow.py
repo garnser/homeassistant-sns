@@ -5,12 +5,8 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.schema_config_entry_flow import SchemaFlowFormStep, SchemaOptionsFlowHandler
-from .const import DOMAIN
+from .const import DOMAIN, CONF_AWS_ACCESS_KEY, CONF_AWS_SECRET_KEY, CONF_AWS_REGION, CONF_SNS_TOPIC_ARN
 
-CONF_AWS_ACCESS_KEY = "aws_access_key"
-CONF_AWS_SECRET_KEY = "aws_secret_key"
-CONF_AWS_REGION = "aws_region"
-CONF_SNS_TOPIC_ARN = "sns_topic_arn"
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -29,12 +25,27 @@ class AwsSnsNotifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict | None = None) -> FlowResult:
         """Handle the initial step."""
+        errors = {}
         if user_input is not None:
-            # Validate and save configuration
-            return self.async_create_entry(title="AWS SNS Notify", data=user_input)
+            try:
+                # Optional: Validate the credentials
+                import boto3
+                client = boto3.client(
+                    "sns",
+                    aws_access_key_id=user_input[CONF_AWS_ACCESS_KEY],
+                    aws_secret_access_key=user_input[CONF_AWS_SECRET_KEY],
+                    region_name=user_input[CONF_AWS_REGION],
+                )
+                client.list_topics()  # Test AWS credentials
+
+                # If valid, save configuration
+                return self.async_create_entry(title="AWS SNS Notify", data=user_input)
+            except Exception as e:
+                errors["base"] = "invalid_credentials"
+                _LOGGER.error("Error validating AWS credentials: %s", e)
 
         return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_DATA_SCHEMA
+            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
     async def async_step_import(self, user_input: dict | None = None) -> FlowResult:
