@@ -9,18 +9,16 @@ from .const import DOMAIN
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up AWS SNS Notify from a config entry."""
-    _LOGGER.debug("async_setup_entry called for AWS SNS Notify")  # Add this
+    _LOGGER.debug("async_setup_entry called for AWS SNS Notify")
     try:
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN][entry.entry_id] = entry.data
 
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(entry, "notify")
-        )
+        await hass.config_entries.async_forward_entry_setups(entry, ["notify"])
         _LOGGER.debug("AWS SNS Notify forward entry setup initiated")
         return True
     except Exception as e:
-        _LOGGER.error("Error during async_setup_entry in __init__.py: %s", e)  # Log any errors
+        _LOGGER.error("Error during async_setup_entry in __init__.py: %s", e)
         return False
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
