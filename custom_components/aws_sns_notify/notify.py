@@ -5,7 +5,6 @@ from homeassistant.components.notify import (
     BaseNotificationService,
     PLATFORM_SCHEMA,
 )
-from homeassistant.const import CONF_ACCESS_TOKEN
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 
@@ -43,7 +42,6 @@ class AwsSnsNotificationService(BaseNotificationService):
         self._aws_secret_key = aws_secret_key
         self._aws_region = aws_region
         self._sns_topic_arn = sns_topic_arn
-
         self._client = boto3.client(
             "sns",
             aws_access_key_id=self._aws_access_key,
