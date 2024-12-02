@@ -1,0 +1,10 @@
+{
+    "name": "AWS SNS Notify",
+    "description": "Integration to send notifications using AWS SNS.",
+    "domain": "aws_sns_notify",
+    "codeowners": ["@garnser"],
+    "requirements": ["boto3>=1.28.13"],
+    "homeassistant": "2023.4.0",
+    "version": "0.1.0",
+    "iot_class": "cloud_push"
+}
